@@ -1,3 +1,5 @@
+#*-* coding: utf-8 *-*
+
 from socket import *
 import os
 import sys
@@ -7,6 +9,7 @@ import select
 import binascii
 
 ICMP_ECHO_REQUEST = 8
+bytes_In_double = struct.calcsize("d")  # 获取struct中double的长度
 
 def check_sum(string):
     csum = 0
@@ -42,8 +45,10 @@ def receiveOnePing(mySocket, ID, timeout, destAddr):
         howLongInReceive = timeReceived - startSelect
         recPacket, addr = mySocket.recvfrom(1024)
         type, code, check_sum, id_, seq = struct.unpack('bbHHh', recPacket[20:28])
-        if type == 0 and seq == 1:
-            return howLongInReceive
+        # 解析出发送时间
+        timeSent = struct.unpack("d", recPacket[28:28 + bytes_In_double])[0]
+        if id_ == ID:
+            return timeReceived - timeSent
         timeLeft = timeLeft - howLongInSelect
         if timeLeft <= 0:
             return "Request timed out."
@@ -54,7 +59,7 @@ def sendOnePing(mySocket, destAddr, ID):
     # Make a dummy header with a 0 checksum
     # struct -- Interpret strings as packed binary data
     header = struct.pack("bbHHh", ICMP_ECHO_REQUEST, 0, myChecksum, ID, 1)
-    data = struct.pack("d", time.time())
+    data = struct.pack("d", time.time()) # 在发送的时候确定了时间
     # Calculate the checksum on the data and the dummy header.
     myChecksum = check_sum(str(header + data))
     # Get the right checksum, and put in the header
@@ -96,4 +101,4 @@ def ping(host, timeout=1):
         time.sleep(1) # one second
     return delay
 
-ping('47.98.252.47')
+ping('www.baidu.com')
